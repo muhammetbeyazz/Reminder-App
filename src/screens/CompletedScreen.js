@@ -1,171 +1,99 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Button, GestureResponderEvent, } from 'react-native';
-
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
+import database from '@react-native-firebase/database';
+import styles from '../components/style';
+import HeaderComponent from '../components/headerComponent';
+import FooterComponent from '../components/footerComponent';
 
 const CompletedScreen = ({ navigation }) => {
-    const navigateToAddTaskScreen = () => {
-        navigation.navigate('Home'); // Make sure this matches the name in your stack navigator
-      };
 
+    const navigateToHomeScreen = () => {
+        navigation.navigate('Home');
+    };
 
+    const [tasks, setTasks] = useState([]);
 
+    const fetchTasks = () => {
+        const tasksRef = database().ref('/tasks');
+        tasksRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            const fetchedTasks = data ? Object.keys(data).map(key => ({
+                ...data[key],
+                id: key
+            })).filter(task => task.status === 'tamamlanmış') : []; // Sadece 'tamamlanmış' durumdaki görevleri filtrele
+            setTasks(fetchedTasks);
+        });
+    };
+    
+
+    const deleteTask = (id) => {
+        database().ref(`/tasks/${id}`).remove()
+        .then(() => {
+            console.log('Task deleted!');
+            fetchTasks();
+        })
+        .catch(error => {
+            console.error('Error deleting task:', error);
+        });
+    };
+
+    const renderTask = ({ item }) => (
+        <View style={styles.containerTask}>
+            <TouchableOpacity
+                style={styles.recIconContainer}
+                onPress={() => deleteTask(item.id)}
+            >
+                <Image source={require("../assets/images/trash-gray-icon.png")} style={styles.icons} />
+            </TouchableOpacity>
+
+            <View style={styles.taskCard}>
+                <Text style={styles.taskTitle}>{item.title}</Text>
+                <Text style={styles.taskDetails}>{item.description}</Text>
+                <Text style={styles.taskDetails}>{formatDate(item.dueDate)}</Text>
+            </View>
+        </View>
+    );
+
+    useEffect(() => {
+        fetchTasks();
+        return () => database().ref('/tasks').off();
+    }, []);
+
+    const formatDate = (timestamp) => {
+        const date = new Date(timestamp);
+        return date.toDateString();
+    };
 
     return (
         <View style={styles.homeScreen}>
-
-            <View style={styles.header}>
-                <View style={styles.backContainer}>
-                    <Image source={require("../assets/images/back-icon.png")} style={styles.icons} />
-                    <Text style={styles.headerTitle}>Anımsatıcılar</Text>
-                </View>
-                <View style={styles.menuConatiner}>
-                    <Image source={require("../assets/images/menu-icon.png")} style={styles.icons} />
-                </View>
-            </View>
-
+            <HeaderComponent
+                leftButtonPress={() => navigation.navigate('Home')}
+                leftButtonText="Anımsatıcılar"
+                leftButtonImage={require("../assets/images/back-icon.png")}
+                showMenuIcon={true}
+            />
 
             <View style={styles.body}>
-
-                <View style={styles.mainTitle}>
-                    <Text style={styles.title}>Tamamlananlar</Text>
+                <View style={styles.bodyTitleContainer}>
+                    <Text style={styles.bodyTitleText}>Tamamlananlar</Text>
                 </View>
-
                 <View style={styles.reminderListContainer}>
-                    <View>
-
-                    </View>
-                </View>
-
-            </View>
-
-
-            <View style={styles.footer}>
-                <View style={styles.addReminder}>
-                    <Image source={require("../assets/images/tick-icon.png")} style={styles.icons} />
-                    <Text style={styles.footerText}>Tamamlandı</Text>
+                    <FlatList
+                        data={tasks}
+                        renderItem={renderTask}
+                        keyExtractor={item => item.id}
+                        style={styles.reminderListContainer}
+                    />
                 </View>
             </View>
 
-
+            <FooterComponent
+                buttonText="Tamamlandı"
+                iconName="tickIcon"
+                onPress={navigateToHomeScreen}
+            />
         </View>
     );
 };
-
-
-const styles = StyleSheet.create({
-    // Ana tasarım aşağıdaki gibidir. Tüm ekranlarımızın standart düzeni bu şekilde olacaktır.
-    homeScreen: {
-        flex: 1, // Tüm ekranı kaplar
-        flexDirection: 'column', // Sütun düzeni
-        backgroundColor: "#040404",
-
-    },
-
-    //Header Kısmının İçeriği
-    header: {
-        width: "100%",
-        flex: 0.09,
-        //height: 60, // Sabit yükseklik
-        //alignItems: 'center', // İçerikleri yatay olarak ortalar
-        justifyContent: 'center', // İçerikleri dikey olarak ortalar
-        borderBottomWidth: 1, // Alt kenarlık genişliği
-        borderBottomColor: '#e0e0e0', // Alt kenarlık rengi
-    },
-    menuConatiner: {
-        height: 35,
-        width: 35,
-        alignItems: "center",
-        justifyContent: 'center',
-        position: "absolute",
-        left: 355,
-        //backgroundColor: "red",
-    },
-    backContainer: {
-        width: 120,
-        height: 28,
-        alignItems: 'center', // İçerikleri yatay olarak ortalar
-        justifyContent: 'center', // İçerikleri dikey olarak ortalar
-        flexDirection: 'row',
-        //backgroundColor: "red",
-    },
-    headerTitle: {
-        fontSize: 15,
-        color: "#5F45FF",
-        textAlign: "center",
-        textAlignVertical: "center",
-        //backgroundColor: "gray",
-    },
-
-    //Body Kısmının İçeriği
-    body: {
-        flex: 1, // Kalan alanı kaplar
-        alignItems: 'center', // İçerikleri yatay olarak ortalar
-        //justifyContent: 'center', // İçerikleri dikey olarak ortalar
-    },
-
-    mainTitle: {
-        height: 55,
-        width: "100%",
-        justifyContent: "center",
-        paddingLeft: 25,
-        //backgroundColor: "red",
-    },
-    title: {
-        width: "auto",
-        height: 50,
-        fontWeight: "bold",
-        fontSize: 40,
-        color: "#5F45FF",
-        //backgroundColor: "gray",
-    },
-    reminderListContainer: {
-
-    },
-
-    //Footer Kısmının içeriği
-
-    footer: {
-        flex: 0.12,
-        //height: 100, // Sabit yükseklik
-        backgroundColor: '#201D1D', // Arka plan rengi
-        borderTopWidth: 1, // Üst kenarlık genişliği
-        borderTopColor: '#e0e0e0', // Üst kenarlık rengi
-        //justifyContent: 'center', // İçerikleri dikey olarak ortalar
-
-    },
-    addReminder: {
-        width: 170,
-        height: 35,
-        alignItems: 'center', // İçerikleri yatay olarak ortalar
-        justifyContent: 'center', // İçerikleri dikey olarak ortalar
-        position: "absolute",
-        left: 8,
-        top: 13,
-        flexDirection: 'row',
-        //backgroundColor: "red",
-    },
-    footerText: {
-        fontSize: 18,
-        color: "#5F45FF",
-        fontWeight: "bold",
-        paddingLeft: 8,
-        textAlign: "center",
-        textAlignVertical: "center",
-    },
-
-
-
-    //Genel Stiller
-    icons: {
-        height: 26,
-        width: 26,
-        resizeMode: 'contain',
-        //backgroundColor:"white"
-    },
-
-});
-
-
-//Kırmızı ve gri alanlar bittikten sonra içeriği oluşturmadan her sayfayı standart bir şekilde iskeletini oluştur.
 
 export default CompletedScreen;

@@ -1,176 +1,591 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Button, GestureResponderEvent, } from 'react-native';
-import HomeScreen from './HomeScreen';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, TextInput, KeyboardAvoidingView, ScrollView, Alert, } from 'react-native';
+import { Switch } from 'react-native-paper';
+import styles from '../components/style';
+import FooterComponent from '../components/footerComponent';
+import HeaderComponent from '../components/headerComponent';
+import LinearGradient from 'react-native-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+import { addDataToFirebase } from '../services/configFirebase';
+
+import AudioPicker from '../components/reminderSoundComponent';
 
 
 const AddTaskScreen = ({ navigation }) => {
-  const navigateToHomeScreen = () => {
-    navigation.navigate('Home'); // Make sure this matches the name in your stack navigator
+
+  // ----- Tarih ve Saat -----
+  //Veri tabanı işlemleri için
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState(null);
+  const [dueTime, setDueTime] = useState(null);
+  const [status, setStatus] = useState('');
+  // Arayüz işlemleri için switch durumları tarih ve saat
+  const [isDateSwitchOn, setIsDateSwitchOn] = useState(false);
+  const [isTimeSwitchOn, setIsTimeSwitchOn] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+
+  // ----- Hatırlatıcı Zamanı -----
+  const [reminderMinutes, setReminderMinutes] = useState(""); // varsayılan olarak 5 dakika
+  const [reminderHours, setReminderHours] = useState("");
+  const [reminderDays, setReminderDays] = useState("");
+  const [reminderWeeks, setReminderWeeks] = useState("");
+  const [reminderMonths, setReminderMonths] = useState("");
+  // Hatırlatıcı zamanını hesaplayan fonksiyon (Eğer kullanıcı giriş yapmazsa varsayılan olarak 0 atanır ve belirlenen tarihte alarm çalar)
+  const calculateReminderTime = () => {
+    if (!dueDate || !dueTime) {
+      return null; // Eğer dueDate veya dueTime tanımlı değilse, null döndür
+    }
+
+    const combinedDueDateTime = new Date(dueDate);
+    combinedDueDateTime.setHours(dueTime.getHours());
+    combinedDueDateTime.setMinutes(dueTime.getMinutes());
+    combinedDueDateTime.setSeconds(0);
+    combinedDueDateTime.setMilliseconds(0);
+
+    // Hatırlatıcı zamanını hesapla
+    combinedDueDateTime.setMinutes(combinedDueDateTime.getMinutes() - (reminderMinutes ? parseInt(reminderMinutes) : 0));
+    combinedDueDateTime.setHours(combinedDueDateTime.getHours() - (reminderHours ? parseInt(reminderHours) : 0));
+    combinedDueDateTime.setDate(combinedDueDateTime.getDate() - (reminderDays ? parseInt(reminderDays) : 0));
+    combinedDueDateTime.setDate(combinedDueDateTime.getDate() - (reminderWeeks ? parseInt(reminderWeeks) : 0) * 7);
+    combinedDueDateTime.setMonth(combinedDueDateTime.getMonth() - (reminderMonths ? parseInt(reminderMonths) : 0));
+
+    return combinedDueDateTime.toISOString();
   };
+
+
+
+
+  // Toggle saat ve tarih 
+  const toggleDateSwitch = () => setShowDatePicker(previousState => !previousState);
+  const toggleTimeSwitch = () => {
+    if (!dueTime) {
+      setDueTime(new Date()); // Eğer saat seçimi yapılmamışsa, varsayılan bir saat değeri atayın
+    } setShowTimePicker(previousState => !previousState);
+  };
+
+  // Fonksiyonlar Tarih ve saat
+  const onChangeDate = (event, selectedDate) => {
+    const currentDate = selectedDate || new Date(); // Eğer kullanıcı tarih seçmezse şu anki tarih kullanılır
+    setShowDatePicker(Platform.OS === 'ios');
+    setDueDate(currentDate);
+  };
+  const onChangeTime = (event, selectedTime) => {
+    const currentTime = selectedTime;
+    if (currentTime) {
+      setShowTimePicker(false);
+      setDueTime(currentTime);
+
+      // Eğer saat seçilirse ve tarih seçilmemişse, tarihi bugüne ayarla
+      if (!dueDate) {
+        setDueDate(new Date());
+      }
+    }
+  };
+
+
+
+  const navigateToHomeScreen = () => {
+    navigation.navigate('Home');
+  };
+
+
+
+
+  // Her bir switch için ayrı state tanımları
+  const [isReminderSwitchOn, setIsReminderSwitchOn] = React.useState(false);
+  // Her bir switch için ayrı toggle fonksiyonları
+  const toggleReminderSwitch = () => setIsReminderSwitchOn(!isReminderSwitchOn);
+  const [isSoundSwitchOn, setIsSoundSwitchOn] = React.useState(false);
+  const toggleSoundSwitch = () => setIsSoundSwitchOn(!isSoundSwitchOn);
+
+
+
+
+
+  // veritabanına kayıt edecek şekilde verilerin hepsini topluyoruz
+  const handleSubmit = () => {
+    return new Promise((resolve, reject) => {
+      // Zorunlu alanları kontrol et
+      if (!title.trim()) {
+        Alert.alert("Hata", "Başlık ve saat alanları zorunludur.");
+        return;
+      }
+
+      if (!dueTime) {
+        Alert.alert("Hata", "Saat alanı zorunludur.");
+        return;
+      }
+
+      // Tarih ve saat bilgilerini birleştirme
+      const combinedDueDateTime = new Date(dueDate || new Date());
+      combinedDueDateTime.setHours(dueTime.getHours());
+      combinedDueDateTime.setMinutes(dueTime.getMinutes());
+      combinedDueDateTime.setSeconds(0);
+      combinedDueDateTime.setMilliseconds(0);
+
+      // Oluşturma tarihi olarak şu anki zamanı kullanma
+      const creationDate = new Date().toISOString();
+
+      // Hatırlatıcı zamanını hesaplama
+      const reminderTime = calculateReminderTime(combinedDueDateTime);
+
+      // Durum hesaplama
+      const calculatedStatus = combinedDueDateTime > new Date() ? 'aktif' : 'tamamlanmış';
+
+      const taskData = {
+        title,
+        description,
+        dueDate: combinedDueDateTime.toISOString(),
+        creationDate,
+        reminderTime,
+        status: calculatedStatus,
+      };
+
+      addDataToFirebase('tasks', taskData)
+        .then(() => {
+          console.log("Task başarıyla kaydedildi.");
+          resolve();
+        })
+        .catch((error) => {
+          console.error("Task kaydederken hata oluştu: ", error);
+          reject(error);
+        });
+    });
+  };
+
+
+
+
+  // Seçilen tarih ve saat bilgilerini formatlayıp göstermek için fonksiyonlar
+  const getFormattedDate = () => {
+    if (!dueDate) {
+      return ' ';
+    }
+    // Eğer dueDate bugünse, "Bugün" yaz
+    const today = new Date();
+    if (dueDate.toDateString() === today.toDateString()) {
+      return 'Bugün';
+    }
+    // Tarihi "gg/aa/yyyy" formatında döndür
+    const day = dueDate.getDate().toString().padStart(2, '0');
+    const month = (dueDate.getMonth() + 1).toString().padStart(2, '0'); // Ay 0'dan başladığı için 1 ekliyoruz
+    const year = dueDate.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  };
+
+
+  const getFormattedTime = () => {
+    if (!dueTime) {
+      return '  ';
+    }
+    return `${dueTime.getHours().toString().padStart(2, '0')}:${dueTime.getMinutes().toString().padStart(2, '0')}`;
+    return dueDate.toLocaleDateString();
+  };
+
+
+
 
 
   return (
     <View style={styles.homeScreen}>
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backContainer} onPress={navigateToHomeScreen}>
-          <Text style={styles.headerTitle}>Vazgeç</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuConatiner} >
-          <Image source={require("../assets/images/menu-icon.png")} style={styles.icons} />
-        </TouchableOpacity>
-      </View>
+      <HeaderComponent
+        leftButtonPress={navigateToHomeScreen}
+        leftButtonText="Vazgeç"
+        showMenuIcon={true}
+      />
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "android" ? "height" : null}
+        style={{ flex: 1 }}
+      >
 
 
-      <View style={styles.body}>
-
-        <View style={styles.mainTitle}>
-          <Text style={styles.title}>Yeni Anımsatıcı</Text>
-        </View>
-
-        <View style={styles.reminderListContainer}>
-          <View>
-
+        <View style={styles.body}>
+          <View style={styles.bodyTitleContainer}>
+            <Text style={styles.bodyTitleText}>Yeni Anımsatıcı</Text>
           </View>
+
+
+          <ScrollView style={{ flex: 1, padding: 0, margin: 0 }}  >
+            <View style={styles.reminderListContainer}>
+              <View style={styles.reminderAddContainer}>
+
+
+                <View style={styles.addNotesContainer}>
+                  <TextInput
+                    placeholder="Başlık"
+                    multiline
+                    placeholderTextColor="#B0B0B0"
+                    style={styles.addTitle}
+                    value={title}
+                    onChangeText={setTitle}
+                  />
+                  <TextInput
+                    placeholder="Not Ekle"
+                    placeholderTextColor="#B0B0B0"
+                    multiline
+                    style={styles.addDescription}
+                    value={description}
+                    onChangeText={setDescription}
+                  />
+                </View>
+
+
+                <View style={[styles.addPassiveContainer, isDateSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={[styles.addImageContiner, { backgroundColor: 'red' }]} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/date-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Tarih</Text>
+                    <Text style={styles.addInfoText}>{getFormattedDate()}</Text>
+                    <Switch
+                      value={isDateSwitchOn}
+                      onValueChange={toggleDateSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isDateSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      testID="datePicker"
+                      value={dueDate || new Date()}
+                      mode="date"
+                      is24Hour={true}
+                      display="default"
+                      onChange={onChangeDate}
+                    />
+                  )}
+                </View>
+
+
+                <View style={[styles.addPassiveContainer, isTimeSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={styles.addImageContiner} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/clock-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Saat</Text>
+                    <Text style={styles.addInfoText}>{getFormattedTime()}</Text>
+                    <Switch
+                      value={isTimeSwitchOn}
+                      onValueChange={toggleTimeSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isTimeSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {showTimePicker && (
+                    <DateTimePicker
+                      testID="timePicker"
+                      value={dueTime || new Date()}
+                      mode="time"
+                      is24Hour={true}
+                      display="default"
+                      onChange={onChangeTime}
+                    />
+                  )}
+                </View>
+
+
+                <View style={[styles.addPassiveContainer, isReminderSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={styles.addImageContiner} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/repeat-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Hatırlatıcı Zamanı</Text>
+                    <Switch
+                      value={isReminderSwitchOn}
+                      onValueChange={toggleReminderSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isReminderSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {isReminderSwitchOn && (
+                    <View style={styles.selectionMainContainer}>
+                      <View style={[styles.selectionContainer, {justifyContent: "center"}]}>
+
+                        <View style={styles.selection}>
+                          <TextInput
+                            style={styles.input}
+                            placeholder="Ay"
+                            onChangeText={text => setReminderMonths(text)}
+                            value={reminderMonths}
+                            keyboardType="numeric"
+                          />
+                          <TextInput
+                            style={styles.input}
+                            onChangeText={text => setReminderWeeks(text)}
+                            value={reminderWeeks}
+                            keyboardType="numeric"
+                            placeholder="Hafta"
+                          />
+                          <TextInput
+                            style={styles.input}
+                            onChangeText={text => setReminderDays(text)}
+                            value={reminderDays}
+                            keyboardType="numeric"
+                            placeholder="Gün"
+                          />
+                          <TextInput
+                            style={styles.input}
+                            onChangeText={text => setReminderHours(text)}
+                            value={reminderHours}
+                            keyboardType="numeric"
+                            placeholder="Saat"
+                          />
+                          <TextInput
+                            style={styles.input}
+                            onChangeText={text => setReminderMinutes(text)}
+                            value={reminderMinutes}
+                            keyboardType="numeric"
+                            placeholder="Dakika"
+                          />
+                        </View>
+
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+
+                <View style={[styles.addPassiveContainer, isSoundSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={styles.addImageContiner} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/music-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Hatırlatıcı Sesi</Text>
+                    <Switch
+                      value={isSoundSwitchOn}
+                      onValueChange={toggleSoundSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isSoundSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {isSoundSwitchOn && (
+                    <View style={styles.selectionMainContainer}>
+                      <View style={styles.selectionContainer}>
+
+                        <View style={styles.selection}>
+
+                          <AudioPicker></AudioPicker>
+
+                        </View>
+
+                      </View>
+                    </View>
+
+                  )}
+                </View>
+
+
+              </View>
+            </View>
+          </ScrollView>
         </View>
 
-      </View>
 
 
-      <View style={styles.footer}>
+        <FooterComponent
+          buttonText="Kaydet"
+          iconName="saveIcon"
+          onPress={() => {
+            handleSubmit()
+              .then(() => {
+                navigateToHomeScreen();
+              })
+              .catch(error => {
+                console.error("Hata oluştu: ", error);
+              });
+          }}
+        />
 
-        <TouchableOpacity
-          style={styles.addReminder}
-          onPress={navigateToHomeScreen}
-        >
-          <Image source={require("../assets/images/save-icon.png")} style={styles.icons} />
-          <Text style={styles.footerText}>Kaydet</Text>
-        </TouchableOpacity>
-      </View>
 
+      </KeyboardAvoidingView >
 
-    </View>
+    </View >
   );
 };
 
-
-const styles = StyleSheet.create({
-  // Ana tasarım aşağıdaki gibidir. Tüm ekranlarımızın standart düzeni bu şekilde olacaktır.
-  homeScreen: {
-    flex: 1, // Tüm ekranı kaplar
-    flexDirection: 'column', // Sütun düzeni
-    backgroundColor: "#040404",
-
-  },
-
-  //Header Kısmının İçeriği
-  header: {
-    width: "100%",
-    flex: 0.09,
-    //height: 60, // Sabit yükseklik
-    //alignItems: 'center', // İçerikleri yatay olarak ortalar
-    justifyContent: 'center', // İçerikleri dikey olarak ortalar
-    borderBottomWidth: 1, // Alt kenarlık genişliği
-    borderBottomColor: '#e0e0e0', // Alt kenarlık rengi
-  },
-  menuConatiner: {
-    height: 35,
-    width: 35,
-    alignItems: "center",
-    justifyContent: 'center',
-    position: "absolute",
-    left: 355,
-    //backgroundColor: "red",
-  },
-  backContainer: {
-    width: 80,
-    height: 28,
-    alignItems: 'center', // İçerikleri yatay olarak ortalar
-    justifyContent: 'center', // İçerikleri dikey olarak ortalar
-    flexDirection: 'row',
-    //backgroundColor: "red",
-  },
-  headerTitle: {
-    height: 25,
-    width: 55,
-    fontSize: 15,
-    color: "#5F45FF",
-    textAlign: "center",
-    textAlignVertical: "center",
-    //backgroundColor: "white",
-  },
-
-  //Body Kısmının İçeriği
-  body: {
-    flex: 1, // Kalan alanı kaplar
-    alignItems: 'center', // İçerikleri yatay olarak ortalar
-    //justifyContent: 'center', // İçerikleri dikey olarak ortalar
-  },
-
-  mainTitle: {
-    height: 55,
-    width: "100%",
-    justifyContent: "center",
-    paddingLeft: 25,
-    //backgroundColor: "red",
-  },
-  title: {
-    width: "auto",
-    height: 50,
-    fontWeight: "bold",
-    fontSize: 40,
-    color: "#5F45FF",
-    //backgroundColor: "gray",
-  },
-  reminderListContainer: {
-
-  },
-
-  //Footer Kısmının içeriği
-
-  footer: {
-    flex: 0.12,
-    //height: 100, // Sabit yükseklik
-    backgroundColor: '#201D1D', // Arka plan rengi
-    borderTopWidth: 1, // Üst kenarlık genişliği
-    borderTopColor: '#e0e0e0', // Üst kenarlık rengi
-    //justifyContent: 'center', // İçerikleri dikey olarak ortalar
-
-  },
-  addReminder: {
-    width: 100,
-    height: 35,
-    alignItems: 'center', // İçerikleri yatay olarak ortalar
-    justifyContent: 'center', // İçerikleri dikey olarak ortalar
-    position: "absolute",
-    left: 20,
-    top: 13,
-    flexDirection: 'row',
-    //backgroundColor: "red",
-  },
-  footerText: {
-    fontSize: 18,
-    color: "#5F45FF",
-    fontWeight: "bold",
-    paddingLeft: 8,
-    textAlign: "center",
-    textAlignVertical: "center",
-  },
-
-
-
-  //Genel Stiller
-  icons: {
-    height: 26,
-    width: 26,
-    resizeMode: 'contain',
-
-    //backgroundColor:"white"
-  },
-
-});
-
-
-//Kırmızı ve gri alanlar bittikten sonra içeriği oluşturmadan her sayfayı standart bir şekilde iskeletini oluştur.
-
 export default AddTaskScreen;
+
+
+
+
+/*
+                
+
+
+
+                <View style={[styles.addPassiveContainer, isSoundSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={styles.addImageContiner} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/music-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Hatırlatıcı Sesi</Text>
+                    <Switch
+                      value={isSoundSwitchOn}
+                      onValueChange={toggleSoundSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isSoundSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {isSoundSwitchOn && (
+                    <View style={styles.selectionMainContainer}>
+                      <View style={styles.selectionContainer}>
+
+                        <View style={[styles.selection, {height: 100, marginTop: 20}]}>
+
+                          <AudioPicker></AudioPicker>
+
+                        </View>
+
+                      </View>
+                    </View>
+
+                  )}
+                </View>
+               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<View style={styles.selectionMainContainer}>
+                      <View style={styles.selectionContainer}>
+                        <View style={styles.selection}>
+                          <FilePicker />
+
+                        </View>
+                      </View>
+                    </View>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ <View style={[styles.addPassiveContainer, isDateSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={[styles.addImageContiner, { backgroundColor: 'red' }]} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/date-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Tarih</Text>
+                    <Switch
+                      value={isDateSwitchOn}
+                      onValueChange={toggleDateSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isDateSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {isDateSwitchOn && (
+                    <View style={styles.selectionMainContainer}>
+                      <View style={styles.selectionContainer}>
+                        <LinearGradient
+                          colors={['rgba(32, 29, 29, 1)', '#91A2FF']}
+                          style={{ height: 22 }}>
+                        </LinearGradient>
+                        <View style={styles.selection}>
+
+                        </View>
+                        <LinearGradient
+                          colors={['#91A2FF', 'rgba(32, 29, 29, 1)']}
+                          style={{ height: 22 }}>
+                        </LinearGradient>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+
+
+
+                <View style={[styles.addPassiveContainer, isTimeSwitchOn && styles.addActiveContainer]}>
+                  <View style={styles.addContainer}>
+                    <View style={styles.addImageContiner} >
+                      <Image
+                        style={styles.addIcons}
+                        source={require("../assets/images/clock-icon.png")}
+                      />
+                    </View>
+                    <Text style={styles.addText}>Saat</Text>
+                    <Switch
+                      value={isTimeSwitchOn}
+                      onValueChange={toggleTimeSwitch}
+                      style={styles.switch}
+                      trackColor={{ false: "#767577", true: "#02C45B" }}
+                      thumbColor={isTimeSwitchOn ? "#f4f3f4" : "#f4f3f4"}
+                    />
+                  </View>
+                  {isTimeSwitchOn && (
+                    <View style={styles.selectionMainContainer}>
+                      <View style={styles.selectionContainer}>
+                        <LinearGradient
+                          colors={['rgba(32, 29, 29, 1)', '#91A2FF']}
+                          style={{ height: 22 }}>
+                        </LinearGradient>
+                        <View style={styles.selection}>
+
+                        </View>
+                        <LinearGradient
+                          colors={['#91A2FF', 'rgba(32, 29, 29, 1)']}
+                          style={{ height: 22 }}>
+                        </LinearGradient>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+              */
