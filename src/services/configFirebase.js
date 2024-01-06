@@ -36,6 +36,7 @@ export const initializeFirebase = () => {
         throw error;  // Hata oluşursa, hatayı fırlat
       });
   };
+  
 
 
 // Firebase'i başlat

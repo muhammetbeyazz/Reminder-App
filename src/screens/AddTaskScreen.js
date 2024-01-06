@@ -13,6 +13,14 @@ import AudioPicker from '../components/reminderSoundComponent';
 
 
 const AddTaskScreen = ({ navigation }) => {
+  const navigateToHomeScreen = () => {
+    navigation.navigate('Home');
+  };
+
+  // Her bir switch için ayrı state tanımları
+  const [isReminderSwitchOn, setIsReminderSwitchOn] = React.useState(false);
+  // Her bir switch için ayrı toggle fonksiyonları
+  const toggleReminderSwitch = () => setIsReminderSwitchOn(!isReminderSwitchOn);
 
   // ----- Tarih ve Saat -----
   //Veri tabanı işlemleri için
@@ -27,7 +35,6 @@ const AddTaskScreen = ({ navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-
   // ----- Hatırlatıcı Zamanı -----
   const [reminderMinutes, setReminderMinutes] = useState(""); // varsayılan olarak 5 dakika
   const [reminderHours, setReminderHours] = useState("");
@@ -39,7 +46,6 @@ const AddTaskScreen = ({ navigation }) => {
     if (!dueDate || !dueTime) {
       return null; // Eğer dueDate veya dueTime tanımlı değilse, null döndür
     }
-
     const combinedDueDateTime = new Date(dueDate);
     combinedDueDateTime.setHours(dueTime.getHours());
     combinedDueDateTime.setMinutes(dueTime.getMinutes());
@@ -57,6 +63,17 @@ const AddTaskScreen = ({ navigation }) => {
   };
 
 
+  // ----- Ses Dosyasi -----
+  const [isSoundSwitchOn, setIsSoundSwitchOn] = useState(false);  // State'i tanımla
+  const [selectedAudioName, setSelectedAudioName] = useState('');
+  const defaultSoundPath = require('../../android/app/src/main/res/raw/clock_with_alarm.mp3');
+  const defaultSoundName = "Clock-With-Alarm.mp3";
+
+
+  const toggleSoundSwitch = () => {
+    setIsSoundSwitchOn(prevState => !prevState);
+  };
+
 
 
   // Toggle saat ve tarih 
@@ -69,9 +86,12 @@ const AddTaskScreen = ({ navigation }) => {
 
   // Fonksiyonlar Tarih ve saat
   const onChangeDate = (event, selectedDate) => {
-    const currentDate = selectedDate || new Date(); // Eğer kullanıcı tarih seçmezse şu anki tarih kullanılır
-    setShowDatePicker(Platform.OS === 'ios');
+    const currentDate = selectedDate || dueDate; // Eğer kullanıcı tarih seçmezse mevcut tarihi kullan
+    setShowDatePicker(Platform.OS === 'ios'); // iOS için bu kontrol gerekli
     setDueDate(currentDate);
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false); // Android için picker'ı kapat
+    }
   };
   const onChangeTime = (event, selectedTime) => {
     const currentTime = selectedTime;
@@ -85,24 +105,6 @@ const AddTaskScreen = ({ navigation }) => {
       }
     }
   };
-
-
-
-  const navigateToHomeScreen = () => {
-    navigation.navigate('Home');
-  };
-
-
-
-
-  // Her bir switch için ayrı state tanımları
-  const [isReminderSwitchOn, setIsReminderSwitchOn] = React.useState(false);
-  // Her bir switch için ayrı toggle fonksiyonları
-  const toggleReminderSwitch = () => setIsReminderSwitchOn(!isReminderSwitchOn);
-  const [isSoundSwitchOn, setIsSoundSwitchOn] = React.useState(false);
-  const toggleSoundSwitch = () => setIsSoundSwitchOn(!isSoundSwitchOn);
-
-
 
 
 
@@ -143,6 +145,7 @@ const AddTaskScreen = ({ navigation }) => {
         creationDate,
         reminderTime,
         status: calculatedStatus,
+        reminderSound: selectedAudioName || defaultSoundName,// kendi dosyasından seçer seçmezse uygulama dosyasındaki varsayılan alarm sesi kayıt edilir
       };
 
       addDataToFirebase('tasks', taskData)
@@ -318,7 +321,7 @@ const AddTaskScreen = ({ navigation }) => {
                   </View>
                   {isReminderSwitchOn && (
                     <View style={styles.selectionMainContainer}>
-                      <View style={[styles.selectionContainer, {justifyContent: "center"}]}>
+                      <View style={[styles.selectionContainer, { justifyContent: "center" }]}>
 
                         <View style={styles.selection}>
                           <TextInput
@@ -384,13 +387,13 @@ const AddTaskScreen = ({ navigation }) => {
                   {isSoundSwitchOn && (
                     <View style={styles.selectionMainContainer}>
                       <View style={styles.selectionContainer}>
-
                         <View style={styles.selection}>
 
-                          <AudioPicker></AudioPicker>
-
+                          <AudioPicker
+                            selectedAudioName={selectedAudioName}
+                            setSelectedAudioName={setSelectedAudioName}
+                          />
                         </View>
-
                       </View>
                     </View>
 
@@ -427,165 +430,3 @@ const AddTaskScreen = ({ navigation }) => {
 };
 
 export default AddTaskScreen;
-
-
-
-
-/*
-                
-
-
-
-                <View style={[styles.addPassiveContainer, isSoundSwitchOn && styles.addActiveContainer]}>
-                  <View style={styles.addContainer}>
-                    <View style={styles.addImageContiner} >
-                      <Image
-                        style={styles.addIcons}
-                        source={require("../assets/images/music-icon.png")}
-                      />
-                    </View>
-                    <Text style={styles.addText}>Hatırlatıcı Sesi</Text>
-                    <Switch
-                      value={isSoundSwitchOn}
-                      onValueChange={toggleSoundSwitch}
-                      style={styles.switch}
-                      trackColor={{ false: "#767577", true: "#02C45B" }}
-                      thumbColor={isSoundSwitchOn ? "#f4f3f4" : "#f4f3f4"}
-                    />
-                  </View>
-                  {isSoundSwitchOn && (
-                    <View style={styles.selectionMainContainer}>
-                      <View style={styles.selectionContainer}>
-
-                        <View style={[styles.selection, {height: 100, marginTop: 20}]}>
-
-                          <AudioPicker></AudioPicker>
-
-                        </View>
-
-                      </View>
-                    </View>
-
-                  )}
-                </View>
-               
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<View style={styles.selectionMainContainer}>
-                      <View style={styles.selectionContainer}>
-                        <View style={styles.selection}>
-                          <FilePicker />
-
-                        </View>
-                      </View>
-                    </View>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- <View style={[styles.addPassiveContainer, isDateSwitchOn && styles.addActiveContainer]}>
-                  <View style={styles.addContainer}>
-                    <View style={[styles.addImageContiner, { backgroundColor: 'red' }]} >
-                      <Image
-                        style={styles.addIcons}
-                        source={require("../assets/images/date-icon.png")}
-                      />
-                    </View>
-                    <Text style={styles.addText}>Tarih</Text>
-                    <Switch
-                      value={isDateSwitchOn}
-                      onValueChange={toggleDateSwitch}
-                      style={styles.switch}
-                      trackColor={{ false: "#767577", true: "#02C45B" }}
-                      thumbColor={isDateSwitchOn ? "#f4f3f4" : "#f4f3f4"}
-                    />
-                  </View>
-                  {isDateSwitchOn && (
-                    <View style={styles.selectionMainContainer}>
-                      <View style={styles.selectionContainer}>
-                        <LinearGradient
-                          colors={['rgba(32, 29, 29, 1)', '#91A2FF']}
-                          style={{ height: 22 }}>
-                        </LinearGradient>
-                        <View style={styles.selection}>
-
-                        </View>
-                        <LinearGradient
-                          colors={['#91A2FF', 'rgba(32, 29, 29, 1)']}
-                          style={{ height: 22 }}>
-                        </LinearGradient>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-
-
-
-                <View style={[styles.addPassiveContainer, isTimeSwitchOn && styles.addActiveContainer]}>
-                  <View style={styles.addContainer}>
-                    <View style={styles.addImageContiner} >
-                      <Image
-                        style={styles.addIcons}
-                        source={require("../assets/images/clock-icon.png")}
-                      />
-                    </View>
-                    <Text style={styles.addText}>Saat</Text>
-                    <Switch
-                      value={isTimeSwitchOn}
-                      onValueChange={toggleTimeSwitch}
-                      style={styles.switch}
-                      trackColor={{ false: "#767577", true: "#02C45B" }}
-                      thumbColor={isTimeSwitchOn ? "#f4f3f4" : "#f4f3f4"}
-                    />
-                  </View>
-                  {isTimeSwitchOn && (
-                    <View style={styles.selectionMainContainer}>
-                      <View style={styles.selectionContainer}>
-                        <LinearGradient
-                          colors={['rgba(32, 29, 29, 1)', '#91A2FF']}
-                          style={{ height: 22 }}>
-                        </LinearGradient>
-                        <View style={styles.selection}>
-
-                        </View>
-                        <LinearGradient
-                          colors={['#91A2FF', 'rgba(32, 29, 29, 1)']}
-                          style={{ height: 22 }}>
-                        </LinearGradient>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-              */
