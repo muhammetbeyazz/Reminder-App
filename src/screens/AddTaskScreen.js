@@ -66,8 +66,7 @@ const AddTaskScreen = ({ navigation }) => {
   // ----- Ses Dosyasi -----
   const [isSoundSwitchOn, setIsSoundSwitchOn] = useState(false);  // State'i tanımla
   const [selectedAudioName, setSelectedAudioName] = useState('');
-  const defaultSoundPath = require('../../android/app/src/main/res/raw/clock_with_alarm.mp3');
-  const defaultSoundName = "Clock-With-Alarm.mp3";
+  const defaultSoundName = "clock_with_alarm.mp3";
 
 
   const toggleSoundSwitch = () => {
@@ -116,28 +115,22 @@ const AddTaskScreen = ({ navigation }) => {
         Alert.alert("Hata", "Başlık ve saat alanları zorunludur.");
         return;
       }
-
       if (!dueTime) {
         Alert.alert("Hata", "Saat alanı zorunludur.");
         return;
       }
-
       // Tarih ve saat bilgilerini birleştirme
       const combinedDueDateTime = new Date(dueDate || new Date());
       combinedDueDateTime.setHours(dueTime.getHours());
       combinedDueDateTime.setMinutes(dueTime.getMinutes());
       combinedDueDateTime.setSeconds(0);
       combinedDueDateTime.setMilliseconds(0);
-
       // Oluşturma tarihi olarak şu anki zamanı kullanma
       const creationDate = new Date().toISOString();
-
       // Hatırlatıcı zamanını hesaplama
       const reminderTime = calculateReminderTime(combinedDueDateTime);
-
       // Durum hesaplama
       const calculatedStatus = combinedDueDateTime > new Date() ? 'aktif' : 'tamamlanmış';
-
       const taskData = {
         title,
         description,
@@ -147,7 +140,6 @@ const AddTaskScreen = ({ navigation }) => {
         status: calculatedStatus,
         reminderSound: selectedAudioName || defaultSoundName,// kendi dosyasından seçer seçmezse uygulama dosyasındaki varsayılan alarm sesi kayıt edilir
       };
-
       addDataToFirebase('tasks', taskData)
         .then(() => {
           console.log("Task başarıyla kaydedildi.");

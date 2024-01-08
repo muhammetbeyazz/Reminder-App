@@ -6,39 +6,29 @@ import AddTaskScreen from './src/screens/AddTaskScreen';
 import CompletedScreen from './src/screens/CompletedScreen';
 import ReminderScreen from './src/screens/ReminderScreen';
 import { initializeFirebase } from './src/services/configFirebase';
-import { initBackgroundTask, startTaskUpdates, createNotificationChannel, removeNotificationListener } from './src/services/notificationAndStatusService';
-//import { startBackgroundTask, stopBackgroundTask } from './src/services/alarmServices';
-
-
-import { stopAlarm, startAlarmService } from './src/services/alarmService';
+import { initBackgroundTask, startTaskUpdates, createNotificationChannel, removeNotificationListener, initSensors } from './src/services/backgroundService';
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
-  
   useEffect(() => {
-    //Firebase'i ve diğer servisleri başlat
     try {
-      initializeFirebase();
+      initializeFirebase(); 
       createNotificationChannel();
       initBackgroundTask();
       startTaskUpdates();
-      //startBackgroundTask();
-      startAlarmService();
-
+      const cancelSensorSubscription = initSensors();
+      return () => {
+        //cancelSensorSubscription();
+        //removeNotificationListener();
+      };
     } catch (error) {
       console.error("Uygulama başlatılırken hata:", error);
     }
-
-    // Uygulama kapatıldığında veya bu component unmount edildiğinde çağrılacak temizleme fonksiyonu
-    return () => {
-       removeNotificationListener();
-      //stopBackgroundTask();
-      stopAlarm();
-    };
   }, []);
-  
 
+
+  
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">

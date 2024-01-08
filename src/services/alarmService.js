@@ -1,3 +1,4 @@
+/*
 import Sound from 'react-native-sound';
 import BackgroundService from 'react-native-background-actions';
 import database from '@react-native-firebase/database';
@@ -92,3 +93,4 @@ const stopAlarmService = () => {
 };
 
 export { startAlarmService, stopAlarmService, stopAlarm };
+*/
