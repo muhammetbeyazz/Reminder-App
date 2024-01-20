@@ -3,12 +3,12 @@ import '@react-native-firebase/database';
 
 // Firebase yapılandırma
 const firebaseConfig = {
-  apiKey: "AIzaSyBdbRT78mN_Y_GeR8poKUIOx5WodwZWhzw",
-  projectId: "mobil-final-projesi",
-  storageBucket: "mobil-final-projesi.appspot.com",
-  messagingSenderId: "824436489889",
-  appId: "1:824436489889:android:dac30348620158e3b1bae0",
-  databaseURL: "https://mobil-final-projesi-default-rtdb.firebaseio.com",  
+  apiKey: "AIzaSyB3Oomp197ky6Kxx5EoQmDb6BlNlu012Zc",
+  projectId: "mobile-reminder-app-3c9b5",
+  storageBucket: "mobile-reminder-app-3c9b5.appspot.com",
+  messagingSenderId: "985296898028",
+  appId: "1:985296898028:android:d6e497c139aece5173a2c9",
+  databaseURL: "https://mobile-reminder-app-3c9b5-default-rtdb.firebaseio.com/",  
 };
 // Firebase'i başlat
 export const initializeFirebase = () => {
